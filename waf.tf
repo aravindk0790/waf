@@ -1,7 +1,3 @@
-locals {
-    ds-ext = data.terraform_remote_state.tf-ws1.outputs
-}
-
 resource "aws_wafv2_web_acl" "waf" {
   name  = upper("${data.aws_iam_account_alias.current.account_alias}-webacl")
   scope = "REGIONAL"
@@ -68,7 +64,7 @@ rule {
 
     visibility_config {
       cloudwatch_metrics_enabled = true
-      metric_name                = "AWSManagedRulesAmazonIpReputationList"
+      metric_name                = "AWSManagedRulesAmazonIpReputationListMetric"
       sampled_requests_enabled   = true
     }
   }
@@ -90,7 +86,7 @@ rule {
 
     visibility_config {
       cloudwatch_metrics_enabled = true
-      metric_name                = "AWSManagedRulesAnonymousIpList"
+      metric_name                = "AWSManagedRulesAnonymousIpListMetric"
       sampled_requests_enabled   = true
     }
   }
@@ -112,13 +108,35 @@ rule {
 
     visibility_config {
       cloudwatch_metrics_enabled = true
-      metric_name                = "AWSManagedRulesAdminProtectionRuleset"
+      metric_name                = "AWSManagedRulesAdminProtectionRulesetMetric"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "AWSRateLimit"
+    priority = 60
+
+    action {
+      block {}
+    }
+
+    statement {
+      rate_based_statement {
+        limit               = 200
+        aggregate_key_type  = "IP"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "AWSRateLimitMetric"
       sampled_requests_enabled   = true
     }
   }
 }
 
 resource "aws_wafv2_web_acl_association" "alb" {
-  resource_arn = local.ds-ext
-  web_acl_arn  = aws_wafv2_web_acl.waf.waf_arn
+  resource_arn = aws_lb.ds-ext.arn
+  web_acl_arn  = aws_wafv2_web_acl.waf.arn
 }
